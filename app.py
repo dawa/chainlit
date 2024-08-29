@@ -10,22 +10,19 @@ client = openai.AsyncClient(api_key=api_key, base_url=endpoint_url)
 # https://platform.openai.com/docs/models/gpt-4o
 model_kwargs = {
     "model": "chatgpt-4o-latest",
-    "temperature": 1.2,
+    "temperature": 0.3,
     "max_tokens": 1000
 }
 
 @cl.on_message
 async def on_message(message: cl.Message):
-    # Your custom logic goes here...
+    response_message = cl.Message(content="")
+    await response_message.send()
 
-    response = await client.chat.completions.create(
-        messages=[{"role": "user", "content": message.content}],
-        **model_kwargs
-    )
+    stream = await client.chat.completions.create(messages=[{"role": "user", "content": message.content}],
+                                                  stream=True, **model_kwargs)
+    async for part in stream:
+        if token := part.choices[0].delta.content or "":
+            await response_message.stream_token(token)
 
-    # https://platform.openai.com/docs/guides/chat-completions/response-format
-    response_content = response.choices[0].message.content
-
-    await cl.Message(
-        content=response_content,
-    ).send()
+    await response_message.update()
